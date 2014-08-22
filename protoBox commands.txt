@@ -1,0 +1,20 @@
+Bluetooh (BOLUTEK pass 1234)
+
+
+Bluetooth Commands
+'x' represents any number, not a command letter
+leds control function
+-1,0,0,0,l to turn all off
+-1,0,0,255,l
+ to turn all on
+-1,x,x,x,l to set all HSV(Hue - Color shade, Saturation - color amount, Value - light amount) (max HSV 360,255,255)
+
+relays function(to the ZVS)
+0,0,0,0r desliga todos; 1,1,0,0,r turns on internal power source; 1,2,0,0,r turns on external power source
+
+ function for infrared led control(currently only Philips RC6 is kept enabled)
+0,1,2,0,i tv power  // 0,2,x,0,i +volume (x>=4) // 0,-2,x,0,i -volume (x>=4) //0,3,x,0,i +ch  (x>=2) //0,-3,x,0,i -ch (x>=2)
+0,4,0,0,i mute //0,5,0,0,i source
+first digit to choose the IR device to be controlled
+third digit sets the number of repetitions
+
