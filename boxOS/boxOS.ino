@@ -46,11 +46,18 @@ unsigned char pwmFrequency = 38;
 int numRegisters = 3;
 int numRGBleds = numRegisters*8/3;
 
+// pin of the transistor "switch" to enable lights + Supply(VDD)
+const int lightsVDD = 44;
+
 // pin to read battery voltage from a voltage divider
 const int batPin = A0;
 
-const int irrecv_pin =44;
+//IR interface stuff
+const int irrecv_pin =45;
 //const int irled =9;
+
+//IRrecv irrecv(irrecv_pin);
+IRsend irsend;
 
 //Philips RC6 codes
 const int RC6pwr = 0xc, RC6volUp = 0x10, RC6volDw = 0x11, RC6mute = 0xD, RC6chUp = 0x4C, RC6chDw = 0x4D, RC6src = 0x38, RC6return = 0xA, RC6home = 0x54;
@@ -60,8 +67,14 @@ const int RC6pwr = 0xc, RC6volUp = 0x10, RC6volDw = 0x11, RC6mute = 0xD, RC6chUp
 const int rlInt_pin = 42;
 const int rlExt_pin = 43;
 
-//IRrecv irrecv(irrecv_pin);
-IRsend irsend;
+//inductance meter
+const int inductance_Out = 40;
+const int inductance_In = 41;
+
+float pulse,frequency,capacitance,inductance;
+
+
+
 
 // create nunchuk object
 WiiChuck chuck = WiiChuck();
@@ -82,6 +95,8 @@ WiiChuck chuck = WiiChuck();
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(13, 12, 46, 47, 48, 49);
 
+//boolean lightsVDD = false;
+
 //Values for joystick X axis
 const int maxUp = -105,maxDown = 110;
 const int trigUp = -85,trigDown = 90;
@@ -90,7 +105,7 @@ const int maxLeft = -123,maxRight = 111;
 const int trigLeft = -103,trigRight = 91;
 int index,sideIndex,led_sInd;
 const int min_index = -1;
-const int max_index = 2;
+const int max_index = 3;
 const int min_sideIndex = -1;
 const int max_sideIndex = 1;
 
@@ -147,8 +162,12 @@ void setup() {
 // relay pin setup
 pinMode(rlInt_pin,OUTPUT);
 pinMode(rlExt_pin,OUTPUT);
-  
-  
+
+//inductance meter pin setup
+pinMode(inductance_In,INPUT);
+pinMode(inductance_Out,OUTPUT);
+
+pinMode(lightsVDD,OUTPUT);
   
    // set up the LCD's number of columns and rows: 
   lcd.begin(16, 2);
@@ -172,6 +191,59 @@ readserialbt();
 // delay(150);
 }
 
+void meterMan(){
+ lcd.setCursor(6,0);
+   lcd<<"Medir";
+   lcd.setCursor(0,1);
+  switch(sideIndex){
+    
+    case 0:
+lcd<<"Indutor:";
+  inductanceMeter();
+break;
+  }
+}
+
+void inductanceMeter(){
+digitalWrite(inductance_Out,HIGH);
+delay(5);
+//give some time to charge inductor.
+digitalWrite(inductance_Out,LOW);
+delayMicroseconds(100);
+//make sure resination is measured
+//pulse in for smaller inductors
+//pulse=pulseIn(11,HIGH,5000);
+
+pulse=pulseIn(inductance_In,HIGH,20000);
+
+//returns 0 if timeout
+if(pulse>0.1){
+  //if a timeout did not occur and it took a reading:
+capacitance=2.E-6;//insert capacitance here. Currently using 2uF
+frequency=1.E6/(2*pulse);
+inductance=1./(capacitance*frequency*frequency*4.*3.14159*3.14159);
+//one of my profs told me just do squares like this
+inductance*=1E6;
+//note that this is the same as saying inductance = inductance*1E6
+
+if(inductance<1e3){
+lcd<<inductance;
+lcd<<"uH";
+}
+if(inductance>1e3 && inductance<1e6){
+lcd<<(inductance/1e3);
+lcd<<"mH";
+}
+if(inductance>1e6 && inductance<1e9){
+lcd<<(inductance/1e6);
+lcd<<"H";
+}
+
+//delay(100);
+delay(20);
+}
+}  
+
 void ledMan(){
   lcd.setCursor(6,0);
    lcd<<"LEDs";
@@ -182,12 +254,14 @@ void ledMan(){
    lcd<<"Acender/Apagar";
    if(cancel){
    ShiftPWM.SetAll(0);
+   digitalWrite(lightsVDD,LOW);
    cancel = false;
    }
    if(ok){
    led_sInd = 0;
+   digitalWrite(lightsVDD,HIGH);
    ShiftPWM.SetAll(255);
-   ok = false;
+     ok = false;
    }
    break;
    
@@ -195,6 +269,7 @@ void ledMan(){
    lcd<<"Chuva de cores";
    if(ok)
    led_sInd = 1;
+   digitalWrite(lightsVDD,HIGH);
    ok = false;
    if(cancel)
    led_sInd = 0;
@@ -248,6 +323,9 @@ void menu(){
     break;
     case -1:
     relayMan();
+    break;
+    case 2:
+    meterMan();
     break;
  }
  delay(25);
